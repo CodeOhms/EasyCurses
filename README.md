@@ -1,0 +1,2 @@
+# EasyCurses
+Simple ncurses widgets
