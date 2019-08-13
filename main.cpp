@@ -42,18 +42,18 @@ bool help()
     //				borders => (bool, we, ns)
     helpMenu.setDrawBorder(true, 0, 0);
     flushinp();
-    
+
     mvwprintw(stdscr, hWinData->height, 0, "Press ESC to exit menu");
     wrefresh(stdscr);
-    
+
     helpMenu.menuLoop();
     delwin(helpWin);
-    
+
     wmove(stdscr, hWinData->height, 0);
     wclrtoeol(stdscr);
     mvwprintw(stdscr, hWinData->height, 0, "Press h for help");
     wrefresh(stdscr);
-    
+
     return true;
 }
 
@@ -96,16 +96,16 @@ int main()
     /*Begin SelectionMenu demo*/
     {
         std::string options = {
-        "camp\nThe quick brown fox jumps over the lazy dog; and again, the quick brown fox jumps over the lazy dog; and once more, the quick brown fox jumps over the lazy dog\nashamed\ngold\nexist\nrhythm\nthumb\ncomplete\nheap\nradiate\nenchanted\nselective\nline\nexistence\nharbor\nugly\nrepresentative\nprick\npast\ninstrument\nOnce more, the quick brown fox jumps over the lazy dog; and again, the quick brown fox jumps over the lazy dog; and once more, the quick brown fox jumps over the lazy dog\nfirst\nsister\nmetal\nvolleyball\ngrade\nreach\nspiteful\ncold\nultra\ngiddy\nsuggestion\ngorgeous\nencourage\nbed\njuice\nhelpless\nhum\numbrella\nscold\nfield\ntow\naspiring\nchildlike\nwoozy\nromantic\nconnect\npull\nalcoholic\nseparate\nsignal\ncuddly\nwonder\nspring\nfinger\nretire\nwar\nexultant\ntail\nlabored\nabnormal\ngrouchy\nsmoggy\ndam\nsecret\ninsect\nfumbling\nhumdrum\nill-fated\ntough\nfilm\nreduce\nrequest\nelbow\nhalting\ncamp\nlike\nwax\nrhetorical\ncurved\nheavenly\nairplane\ndoor\nreason\nscarf\nmarked\ncrush\nbridge\nharmony\nwreck\npretend\nplace\nambitious\nargument\nwatch\nhandsome\nabundant\nstormy\noffice\nwrap\norganic\nyarn\nconsolidate\ncandle\ncattle\nstrap\nplug\ndentist\nrecommendation\nlive\nmeeting\nsafe\nglove\nvertical\nbait\nfalse\ncolumn\ndeparture\nwidth\ncivilization\nindustry\nmourning\nsmall\nbiology\nperfume\nterms\nmole\nwarn\nparty\nprivacy\ninstall\nbirthday\ngreat\nthesis\nabcdefghijklmnopqrstuvwxyz" };
+        "camp\n1)The quick brown fox jumps over the lazy dog; and again, the quick brown fox jumps over the lazy dog; and once more, the quick brown fox jumps over the lazy dog\nSome very long text that should probably have better grammar not to mention it is running!\nashamed\ngold\nexist\nrhythm\nthumb\ncomplete\nheap\nradiate\nenchanted\nselective\nline\nexistence\nharbor\nugly\nrepresentative\nprick\npast\ninstrument\n2)Once more, the quick brown fox jumps over the lazy dog; and again, the quick brown fox jumps over the lazy dog; and once more, the quick brown fox jumps over the lazy dog\nfirst\nsister\nmetal\nvolleyball\ngrade\nreach\nspiteful\ncold\nultra\ngiddy\nsuggestion\ngorgeous\nencourage\nbed\njuice\nhelpless\nhum\numbrella\nscold\nfield\ntow\naspiring\nchildlike\nwoozy\nromantic\nconnect\npull\nalcoholic\nseparate\nsignal\ncuddly\nwonder\nspring\nfinger\nretire\nwar\nexultant\ntail\nlabored\nabnormal\ngrouchy\nsmoggy\ndam\nsecret\ninsect\nfumbling\nhumdrum\nill-fated\ntough\nfilm\nreduce\nrequest\nelbow\nhalting\ncamp\nlike\nwax\nrhetorical\ncurved\nheavenly\nairplane\ndoor\nreason\nscarf\nmarked\ncrush\nbridge\nharmony\nwreck\npretend\nplace\nambitious\nargument\nwatch\nhandsome\nabundant\nstormy\noffice\nwrap\norganic\nyarn\nconsolidate\ncandle\ncattle\nstrap\nplug\ndentist\nrecommendation\nlive\nmeeting\nsafe\nglove\nvertical\nbait\nfalse\ncolumn\ndeparture\nwidth\ncivilization\nindustry\nmourning\nsmall\nbiology\nperfume\nterms\nmole\nwarn\nparty\nprivacy\ninstall\nbirthday\ngreat\nthesis\nabcdefghijklmnopqrstuvwxyz" };
 
         std::unique_ptr<WinData> winData(newWinData(stdscr));
         winData->height -= 1;
         WINDOW* demo = newwin(winData->height, winData->width, winData->startY, winData->startX);
         winData->win = demo;
-        
+
         mvwprintw(stdscr, winData->height, 0, "Press h for help");
         wrefresh(stdscr);
-        
+
         SelectionMenu sMenu(options, winData.get(), "SelectionMenu demo");
         sMenu.keyBindings[104] = EasyCurses::NavContent::custom; //104 => 'h'
         sMenu.setCustomAction(&help);
@@ -128,7 +128,7 @@ int main()
         for(auto option : chosen)
             wprintw(demo, "%i", option);
         wrefresh(demo);
-        
+
         freeze();
         delwin(demo);
     } //User responsible for deleting window used
@@ -150,7 +150,7 @@ int main()
                 Sleep(250);
             }
         };
-        
+
         int input;
         wtimeout(demo2, 200);
         do
@@ -159,7 +159,7 @@ int main()
             runDialog();
             input = wgetch(demo2);
         } while(input != 27); //27 == ESC key
-        
+
         delwin(demo2);
     }
 

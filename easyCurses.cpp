@@ -68,130 +68,90 @@ namespace EasyCurses
 
     namespace TextFormat
     {
-        void overflow(std::string text, int maxLength, LineEnds& markers, bool markVirtEnd)
+        size_t calcLineEnd(LineEnds& pageLayout, TextLayout& overflowLayout, size_t currentLine,
+          size_t linePos, size_t maxLength)
         {
-            //Scan to newline, then check if text is too long. If it is, mark a new line
-            std::array<int, 2> currentRange = { 1, 0 };
-            size_t lineStart = currentRange.front();
-            size_t lineEnd   = currentRange.back();
-
-            auto lineLength = [&] () -> int {
-                return lineEnd - lineStart;
-            };
-
-            size_t virtEnd;
-            auto setVirtEnd = [&] () -> void {
-                virtEnd = (lineStart + maxLength) -1; //-1 so zero-initialised
-            };
-
-            markers.clear();
-            while(true)
+            //Sum up previous end points, excluding virtual
+            size_t sum  = 0;
+            size_t l    = 0;
+            //size_t prevEP;
+            size_t endPoint;
+            for(LineEnds::iterator eP = pageLayout.begin();l < currentLine; ++eP)
             {
-                lineEnd = text.find("\n", lineStart -1); //-1 to avoid skipping first char
+                //Did the last line overflow?
+                //prevEP = *(endPoint -(l == 0 ? 0 : 1));
+                endPoint = *eP;
+                if(endPoint == maxLength +1)
+                    endPoint = ( --( overflowLayout.upper_bound(l) ) )->second;
 
-                if(lineEnd == std::string::npos)
-                    lineEnd = text.length();
+                sum += endPoint +1;
+                ++l;
+            }
+            return linePos - sum;
+        }
 
-                if(lineLength() > maxLength)
-                {
-                    setVirtEnd();
-                    while(virtEnd < lineEnd)
-                    {
-                        int marked = virtEnd;
-                        if(markVirtEnd)
-                            marked = -virtEnd; //Mark softwrapping with negative numbers
-                        markers.push_back(marked);
-                        lineStart = (virtEnd) +1;
-                        setVirtEnd();
-                    }
+        size_t calcLinePos(LineEnds& pageLayout, TextLayout& overflowLayout, size_t currentLine,
+          size_t linePos, size_t maxLength)
+        {
+            
+        }
+
+        void overflow(std::string text, int maxLength, LineEnds& pageLayout,
+          TextLayout& overflowLayout, bool markVirtEnd)
+        {
+            //Each time this is run, information is recalculated.
+            pageLayout.clear();
+            overflowLayout.clear();
+
+            size_t lineEnd;
+            size_t linePos     = 0;
+            size_t currentLine = 0;
+
+
+            while(linePos != text.length())
+            {
+                //Set end points
+                linePos = text.find("\n", linePos + (linePos == 0 ? 0 : 1));
+
+                if(linePos == std::string::npos)
+                    linePos = text.length();
                 }
+
+                lineEnd = calcLineEnd(pageLayout, overflowLayout, currentLine, linePos, maxLength);
+
+                if(!(lineEnd > maxLength))
+                    pageLayout.push_back(lineEnd);
                 else
                 {
-                    markers.push_back(lineEnd);
-                    lineStart = lineEnd +2; //+2 to skip newline and start new
-                    if(lineStart >= text.length())
-                        break;
+                    //Set virtual end points, defined by overflows
+                    pageLayout.push_back(maxLength +1
+
+                    size_t virtEnd;
+                    size_t virtStart = maxLength;
+                    while(true)
+                    {
+                        virtEnd = virtStart + maxLength;
+                        if(virtEnd >= lineEnd)
+                            break;
+                        overflowLayout.insert(std::pair<size_t, size_t>(currentLine, virtEnd));
+
+                        virtStart = virtEnd;
+                    }
+
+                    virtEnd = calcLineEnd(pageLayout, overflowLayout, currentLine, linePos, maxLength);
+                    overflowLayout.insert(std::pair<size_t, size_t>(currentLine, virtEnd));
                 }
+
+                cout << endl;
+                ++currentLine;
             }
         }
 
-        unsigned int isOverflow(LineEnds markers, int index)
+        bool isOverflow(size_t eP)
         {
-            int endPoint = markers[index];
-            if(index == 0 && endPoint < 0)
-                return 1;
-            else if(index == 0 && endPoint > 0)
-                return 0;
-
-            int prevEndPoint = markers[index -1];
-
-            if(endPoint < 0)
-            {
-                if(prevEndPoint < 0)
-                    return 2;
-                return 3;
-            }
-            else if(prevEndPoint < 0)
-                return 4;
-
-            return 0;
+            return eP == _maxChars() +1;
         }
 
-        void pageFormat(int maxLines, LineEnds markers, TextLayout& pageLayout, TextLayout& overflowLayout)
-        {
-            int numLines = markers.size();
-            int numLinesSkipped = 0;
-            int page = 0;
-            int endPoint;
-            int startOfOverflow;
-            bool lastLineOverflowed = false;
-
-            auto setEndPoint = [&] (int index) -> void {
-                endPoint = markers[index];
-                if(lastLineOverflowed)
-                {
-                    endPoint = -endPoint;
-                    lastLineOverflowed = false;
-                }
-                else if(endPoint < 0)
-                    endPoint *= -1;
-            };
-
-            for(int l = 0; l < numLines; ++l)
-            {
-                int res = TF::isOverflow(markers, l);
-                switch(res)
-                {
-                    case 0:
-                    case 1:
-                    case 3:
-                        setEndPoint(l);
-                        pageLayout.insert(std::pair<int, int>(page, endPoint));
-                        if(res == 1 || res == 3)
-                        {
-                            //Start filling out new overflowLayout
-                            startOfOverflow = l - numLinesSkipped;
-                            overflowLayout.insert(std::pair<int, int>(startOfOverflow, endPoint));
-                        }
-                        break;
-
-                    case 2:
-                    case 4:
-                        ++numLinesSkipped;
-                        setEndPoint(l);
-
-                        overflowLayout.insert(std::pair<int, int>(startOfOverflow, endPoint));
-                        if(res == 4)
-                            lastLineOverflowed = true;
-                        break;
-                }
-
-                if(l == ((maxLines * (page +1)) -1) + numLinesSkipped)
-                    ++page;
-            }
-        }
-
-    }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //Widgets
@@ -362,6 +322,7 @@ namespace EasyCurses
                 else //4th
                     ++page;
                 break;
+
             default:
                 break;
         }
