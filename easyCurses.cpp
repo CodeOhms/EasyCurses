@@ -74,12 +74,9 @@ namespace EasyCurses
             //Sum up previous end points, excluding virtual
             size_t sum  = 0;
             size_t l    = 0;
-            //size_t prevEP;
             size_t endPoint;
-            for(LineEnds::iterator eP = pageLayout.begin();l < currentLine; ++eP)
+            for(LineEnds::iterator eP = pageLayout.begin(); l < currentLine; ++eP)
             {
-                //Did the last line overflow?
-                //prevEP = *(endPoint -(l == 0 ? 0 : 1));
                 endPoint = *eP;
                 if(endPoint == maxLength +1)
                     endPoint = ( --( overflowLayout.upper_bound(l) ) )->second;
@@ -91,13 +88,44 @@ namespace EasyCurses
         }
 
         size_t calcLinePos(LineEnds& pageLayout, TextLayout& overflowLayout, size_t currentLine,
-          size_t linePos, size_t maxLength)
+          size_t maxLength, int oFlowIt)
         {
-            
+            //Sum up previous end points. Exclude virtual depending on 'oFlow'
+            size_t sum     = 0;
+            size_t l       = 0;
+            size_t endPoint;
+            for(LineEnds::iterator eP = pageLayout.begin(); l <= currentLine; ++eP)
+            {
+                endPoint = *eP;
+
+                if(endPoint == maxLength +1)
+                {
+                    //Are we retrieving overflows of this line?
+                    if(l == currentLine && !oFlowIt)
+                        endPoint = maxLength;
+                    else if(!oFlowIt)
+                    {
+                        endPoint = ( --(overflowLayout.upper_bound(l)) )->second;
+                    }
+                    else
+                    {
+                        auto it = overflowLayout.lower_bound(l);
+                        for(int i = 1; i < oFlowIt; ++i)
+                        {
+                            ++it;
+                        }
+                        endPoint  = (it->second) -1;
+                    }
+                }
+
+                sum += endPoint + (currentLine == 0 || l == currentLine ? 0 : 1);
+                ++l;
+            }
+            return sum;
         }
 
         void overflow(std::string text, int maxLength, LineEnds& pageLayout,
-          TextLayout& overflowLayout, bool markVirtEnd)
+          TextLayout& overflowLayout)
         {
             //Each time this is run, information is recalculated.
             pageLayout.clear();
@@ -142,7 +170,6 @@ namespace EasyCurses
                     overflowLayout.insert(std::pair<size_t, size_t>(currentLine, virtEnd));
                 }
 
-                cout << endl;
                 ++currentLine;
             }
         }

@@ -66,7 +66,10 @@ namespace EasyCurses
          *   LineEnds pageLayout = { 2, 11, 4 };
          *     => If a line overflows, it has a special attribute.
          *        Its end point = the screen width +1. Simply subtract -1 to
-         *        get the real end point.
+         *        get the real end point. Each element is a count of how many
+         *        characters are included from a given line. Convert back
+         *        to the indexs of the string, then subtract the count
+         *        to get the start point of the line.
          *   TextLayout overflowLayout = { [1] = 20, [1] = 21 };
          *     => 'overflowLayout' contains the virtual end points in between,
          *        and the end point of the new line of the overflow.
@@ -86,10 +89,10 @@ namespace EasyCurses
         size_t calcLineEnd(LineEnds& pageLayout, TextLayout& overflowLayout, size_t currentLine,
           size_t linePos, size_t maxLength);
         size_t calcLinePos(LineEnds& pageLayout, TextLayout& overflowLayout, size_t currentLine,
-          size_t linePos, size_t maxLength);
+          size_t maxLength, int oFlowIt);
 
         void overflow(std::string text, int maxLength, LineEnds& pageLayout,
-          TextLayout& overflowLayout, bool markVirtEnd);
+          TextLayout& overflowLayout);
         /*
          * Return 1 if on the first line, and the 'endPoint' is negative.
          * Return 2 if both 'endPoint' and 'prevEndPoint' are negative.
