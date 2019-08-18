@@ -68,116 +68,108 @@ namespace EasyCurses
 
     namespace TextFormat
     {
-        size_t calcLineEnd(LineEnds& pageLayout, TextLayout& overflowLayout, size_t currentLine,
-          size_t linePos, size_t maxLength)
-        {
-            //Sum up previous end points, excluding virtual
-            size_t sum  = 0;
-            size_t l    = 0;
-            size_t endPoint;
-            for(LineEnds::iterator eP = pageLayout.begin(); l < currentLine; ++eP)
-            {
-                endPoint = *eP;
-                if(endPoint == maxLength +1)
-                    endPoint = ( --( overflowLayout.upper_bound(l) ) )->second;
-
-                sum += endPoint +1;
-                ++l;
-            }
-            return linePos - sum;
-        }
-
-        size_t calcLinePos(LineEnds& pageLayout, TextLayout& overflowLayout, size_t currentLine,
-          size_t maxLength, int oFlowIt)
-        {
-            //Sum up previous end points. Exclude virtual depending on 'oFlow'
-            size_t sum     = 0;
-            size_t l       = 0;
-            size_t endPoint;
-            for(LineEnds::iterator eP = pageLayout.begin(); l <= currentLine; ++eP)
-            {
-                endPoint = *eP;
-
-                if(endPoint == maxLength +1)
-                {
-                    //Are we retrieving overflows of this line?
-                    if(l == currentLine && !oFlowIt)
-                        endPoint = maxLength;
-                    else if(!oFlowIt)
-                    {
-                        endPoint = ( --(overflowLayout.upper_bound(l)) )->second;
-                    }
-                    else
-                    {
-                        auto it = overflowLayout.lower_bound(l);
-                        for(int i = 1; i < oFlowIt; ++i)
-                        {
-                            ++it;
-                        }
-                        endPoint  = (it->second) -1;
-                    }
-                }
-
-                sum += endPoint + (currentLine == 0 || l == currentLine ? 0 : 1);
-                ++l;
-            }
-            return sum;
-        }
-
-        void overflow(std::string text, int maxLength, LineEnds& pageLayout,
-          TextLayout& overflowLayout)
+        void overflow(std::string text, int maxLength, LineEnds& lineFormat, OverFlow& oFLayout, bool wrap)
         {
             //Each time this is run, information is recalculated.
-            pageLayout.clear();
-            overflowLayout.clear();
+            lineFormat.clear();
+            oFLayout.clear();
 
-            size_t lineEnd;
-            size_t linePos     = 0;
+            size_t numChars;
+            size_t   start     = 0;
+            size_t   linePos   = 0;
             size_t currentLine = 0;
 
+            LineEnds oFlow;
 
             while(linePos != text.length())
             {
-                //Set end points
-                linePos = text.find("\n", linePos + (linePos == 0 ? 0 : 1));
-
-                if(linePos == std::string::npos)
-                    linePos = text.length();
-                }
-
-                lineEnd = calcLineEnd(pageLayout, overflowLayout, currentLine, linePos, maxLength);
-
-                if(!(lineEnd > maxLength))
-                    pageLayout.push_back(lineEnd);
-                else
                 {
-                    //Set virtual end points, defined by overflows
-                    pageLayout.push_back(maxLength +1
+                    size_t endPoint;
 
-                    size_t virtEnd;
-                    size_t virtStart = maxLength;
-                    while(true)
+                    //Set end points
+                    linePos = text.find("\n", linePos + (linePos == 0 ? 0 : 1));
+
+                    if(linePos == std::string::npos)
+                        linePos = text.length();
+
+                    if(linePos > (maxLength + start))
                     {
-                        virtEnd = virtStart + maxLength;
-                        if(virtEnd >= lineEnd)
-                            break;
-                        overflowLayout.insert(std::pair<size_t, size_t>(currentLine, virtEnd));
+                        //Fill out overflow information
+                        size_t virtStart = start + maxLength;
+                        size_t virtEnd;
 
-                        virtStart = virtEnd;
+                        auto commit = [&]() -> void {
+                            if(wrap)
+                                oFlow.push_back(std::make_pair(virtEnd, numChars));
+                            else
+                                oFLayout.insert(std::make_pair( currentLine,
+                                  std::make_pair(virtEnd, numChars) ));
+
+                        };
+
+
+                        while(true)
+                        {
+                            virtEnd = virtStart + maxLength;
+
+                            if(virtEnd > linePos)
+                            {
+                                virtEnd  = linePos;
+                                numChars = linePos - virtStart;
+
+                                commit();
+                                break;
+                            }
+                            else
+                            {
+                                numChars = maxLength;
+
+                                commit();
+
+                                if(virtEnd == linePos)
+                                    break;
+                            }
+
+                            virtStart = virtEnd;
+                        }
+
+                        numChars = maxLength +1;
+                        endPoint = start + maxLength;
+                        start    = linePos +1;
+                    }
+                    else
+                    {
+                        numChars = linePos - start;
+
+                        start    = linePos +1;
+                        endPoint = linePos;
                     }
 
-                    virtEnd = calcLineEnd(pageLayout, overflowLayout, currentLine, linePos, maxLength);
-                    overflowLayout.insert(std::pair<size_t, size_t>(currentLine, virtEnd));
+                    lineFormat.push_back(std::make_pair(endPoint, numChars));
+                    if(wrap)
+                    {
+                        for(auto line : oFlow)
+                        {
+                            size_t ep = line.first;
+                            int chars = line.second;
+                            lineFormat.push_back(std::make_pair(ep, chars));
+                        }
+                        oFlow.clear();
+                    }
                 }
 
                 ++currentLine;
             }
         }
 
-        bool isOverflow(size_t eP)
+        void overflow(std::string text, int maxLength, LineEnds& lineFormat)
         {
-            return eP == _maxChars() +1;
+            OverFlow placeHolder;
+
+            overflow(text, maxLength, lineFormat, placeHolder, true);
         }
+    }
+
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -286,8 +278,8 @@ namespace EasyCurses
     BasicMenu::BasicMenu(std::string lines, WinData* windowsData, std::string title) : Menus(windowsData, title)
     {
         text = lines;
-        TF::overflow(lines, _maxChars(), lineFormat);
-        numLines    = lineFormat.size();
+        TF::overflow(lines, _maxChars(), pageLayout);
+        numLines = pageLayout.size();
 
         keypad(winData->win, true);
 
@@ -369,20 +361,20 @@ namespace EasyCurses
         }
     }
 
-    void BasicMenu::printStyle(int& x, int& y)
+    void BasicMenu::printStyle()
     {
+        int x, y;
+        x = winData->paddingX;
+        y = winData->paddingY;
+
         for(int l = pageTop(); l <= pageBottom() && l < numLines; ++l)
         {
-            int endPoint  = lineFormat[l]; //-1 so zero-initialised
-            int lineStart = (l == 0 ? 0 : lineFormat[l - 1] );
+            auto info        = pageLayout[l];
+            int numChars     = info.second; //-1 so zero-initialised
+            size_t lineStart = info.first - (info.second == _maxChars() +1? _maxChars() : info.second);
 
             wmove(winData->win, y, x);
-            for(int c = lineStart; c < endPoint; ++c)
-            {
-                if(text.compare(c, 1, "\n") == 0)
-                    continue;
-                waddch(winData->win, text[c]);
-            }
+            waddstr(winData->win, text.substr(lineStart, numChars).c_str());
             ++y;
         }
     }
@@ -397,7 +389,7 @@ namespace EasyCurses
 
         eraseChunk(winData->win, y, _maxLines() +y, x, _maxChars() +x);
 
-        printStyle(x, y);
+        printStyle();
         wrefresh(winData->win);
     }
 
@@ -451,11 +443,7 @@ namespace EasyCurses
     {
         this->text = text;
 
-        {
-            TF::LineEnds lineFormat;
-            TF::overflow(text, _maxChars(), lineFormat, true);
-            TF::pageFormat(_maxLines(), lineFormat, pageLayout, overflowLayout);
-        }
+        TF::overflow(text, _maxChars(), pageLayout, oFLayout);
         numLines = pageLayout.size();
 
         for(int i = 0; i < numLines; ++i)
@@ -557,34 +545,34 @@ namespace EasyCurses
 
     void SelectionMenu::navTrunc(NavContent input)
     {
-        if(overflowLine == overflowLayout.end())
+        if(oFLine == oFLayout.end())
             return;
 
         bool changed = false;
 
-        TF::TextLayout::iterator first, last;
+        TF::OverFlow::iterator first, last;
         {
-            auto range  = overflowLayout.equal_range(highlight);
-            first  = range.first;
-            last   = range.second;
+            auto range = oFLayout.equal_range(highlight);
+            first      = range.first;
+            last       = range.second;
             --last;
         }
 
         switch(input)
         {
         case NavContent::left:
-            if(overflowLine != first)
+            if(oFLine != first)
             {
                 changed = true;
-                --overflowLine;
+                --oFLine;
             }
             break;
 
         case NavContent::right:
-            if(overflowLine != last)
+            if(oFLine != last)
             {
                 changed = true;
-                ++overflowLine;
+                ++oFLine;
             }
             break;
 
@@ -597,36 +585,11 @@ namespace EasyCurses
             eraseChunk(winData->win, currentLine(), winData->paddingX, _maxChars());
             wattron(winData->win, A_REVERSE);
 
-            int lineStart;
-            if(overflowLine == first)
-            {
-                int increment = ( highlight - (page * _maxLines()) ) -1;
-                auto lastLine = pageLayout.lower_bound(page);
-                if(increment == -1)
-                    --lastLine;
-                else
-                {
-                    for(int i = 0; i < increment; ++i)
-                    {
-                        ++lastLine;
-                    }
-                }
-                lineStart = lastLine->second;
-            }
-            else
-            {
-                auto temp = overflowLine;
-                --temp;
-                lineStart = temp->second;
-            }
-            for(int c = lineStart; c < overflowLine->second; ++c)
-            {
-                if(text.compare(c, 1, "\n") == 0)
-                    continue;
-                waddch(winData->win, text[c]);
-            }
+            int numChars     = (oFLine->second).second;
+            size_t lineStart = ((oFLine->second).first) - numChars;
 
-            wattroff(winData->win, A_REVERSE);
+            wmove(winData->win, winData->paddingY, winData->paddingX);
+            waddstr(winData->win, text.substr(lineStart, numChars).c_str());
         }
 
         wrefresh(winData->win);
@@ -686,59 +649,35 @@ namespace EasyCurses
         BasicMenu::menuLoop();
     }
 
-    void SelectionMenu::printStyle(int& x, int& y)
+    void SelectionMenu::printStyle()
     {
-        auto range = pageLayout.equal_range(page);
+        int x, y;
+        //Start postion of content in window
+        x = winData->paddingX;
+        y = winData->paddingY;
 
+        for(int l = pageTop(); l <= pageBottom() && l < numLines; ++l)
         {
-            int l = 0;
-            int endPoint;
-            int lineStart;
-            if(page == 0)
-                lineStart = 0;
+            auto info        = pageLayout[l];
+            int numChars     = (info.second == _maxChars() +1? _maxChars() : info.second);
+            size_t lineStart = info.first - numChars;
+
+            wmove(winData->win, y, x);
+            //Highlight the present choice
+            if(highlight == l + (_maxLines() * page))
+            {
+                wattron(winData->win, A_REVERSE);
+                waddstr(winData->win, text.substr(lineStart, numChars).c_str());
+                wattroff(winData->win, A_REVERSE);
+            }
             else
             {
-                auto temp = pageLayout.equal_range(page -1).second;
-                --temp;
-                lineStart = temp->second;
+                waddstr(winData->win, text.substr(lineStart, numChars).c_str());
             }
-            for(auto it = range.first; it != range.second; ++it)
-            {
-                endPoint = it->second;
-                if(endPoint < 0)
-                {
-                    endPoint *= -1;
-                    int thisLine = (l -1)  + ( page * _maxLines() );
-                    auto temp = overflowLayout.upper_bound(thisLine);
-                    --temp;
-                    lineStart = temp->second;
-                }
-
-                wmove(winData->win, y, x);
-                for(int c = lineStart; c < endPoint; ++c)
-                {
-                    if(text.compare(c, 1, "\n") == 0)
-                        continue;
-
-                    //Highlight the present choice
-                    if(highlight == l + (_maxLines() * page))
-                    {
-                        wattron(winData->win, A_REVERSE);
-                        waddch(winData->win, text[c]);
-                        wattroff(winData->win, A_REVERSE);
-                    }
-                    else
-                    {
-                        waddch(winData->win, text[c]);
-                    }
-                }
-
-                ++y;
-                ++l;
-                lineStart = endPoint;
-            }
+            ++y;
         }
     }
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //Dialogs

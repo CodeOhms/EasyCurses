@@ -57,7 +57,7 @@ namespace EasyCurses
          *   text = "d  o  \n s  o  m  e  _  r  e  a  l  l  y  _  l  o  n  g  _  t  e  x  t  \n w  o  r  k"
          *                                      <---------screen width-------->
          *    <---------screen width-------->   <---------------overflow------------>
-         *     00|01|02|03|04|05|06|07|08|09|   |10|11|12|13|14|15|16|17|18|19|20|21|22|
+         *     00|01|02|03|04|05|06|07|08|09|   |00|01|02|03|04|05|06|07|08|09|10|11|12|
          *   0| d| o|\n|  |  |  |  |  |  |  |   |  |  |  |  |  |  |  |  |  |  |  |  |  |
          *   1| s| o| m| e|  | r| e| a| l| l|   | y|  | l| o| n| g|  | t| e| x| t|\n|  |
          *   2| w| o| r| k|  |  |  |  |  |  |   |  |  |  |  |  |  |  |  |  |  |  |  |  |
@@ -70,29 +70,26 @@ namespace EasyCurses
          *        characters are included from a given line. Convert back
          *        to the indexs of the string, then subtract the count
          *        to get the start point of the line.
-         *   TextLayout overflowLayout = { [1] = 20, [1] = 21 };
-         *     => 'overflowLayout' contains the virtual end points in between,
+         *   TextLayout oFLayout = { [1] = 10, [1] = 1 };
+         *     => 'oFLayout' contains the virtual end points in between,
          *        and the end point of the new line of the overflow.
          *
          */
 
         /*
-         * Existing newlines must still be filtered as this function only marks the end of lines.
-         * Must also be recalculated at every screen resize
+         * Must be recalculated at every screen resize.
          */
 
-        //This records the position of each line's end, including those marked by virtual "/n". It must be updated with each screen resize
-        typedef std::vector<size_t> LineEnds;
-        typedef std::multimap<size_t, size_t> TextLayout;
+//                         index of line end, # characters
+        typedef std::vector<std::pair<size_t, size_t>> LineEnds;
+ //                           line #, index of line end, # characters
+        typedef std::multimap<size_t, std::pair<size_t, unsigned>> OverFlow;
 
         // void overflow(std::string text, int maxLength, LineEnds& markers, bool markVirtEnd=false);
-        size_t calcLineEnd(LineEnds& pageLayout, TextLayout& overflowLayout, size_t currentLine,
-          size_t linePos, size_t maxLength);
-        size_t calcLinePos(LineEnds& pageLayout, TextLayout& overflowLayout, size_t currentLine,
-          size_t maxLength, int oFlowIt);
 
-        void overflow(std::string text, int maxLength, LineEnds& pageLayout,
-          TextLayout& overflowLayout);
+        void overflow(std::string text, int maxLength, LineEnds& lineFormat,
+          OverFlow& oFLayout, bool wrap=false);
+        void overflow(std::string text, int maxLength, LineEnds& lineFormat);
         /*
          * Return 1 if on the first line, and the 'endPoint' is negative.
          * Return 2 if both 'endPoint' and 'prevEndPoint' are negative.
@@ -100,7 +97,7 @@ namespace EasyCurses
          * Return 4 if 'endPoint' is positive, but 'prevEndPoint' is negative.
          * Return 0 if both 'endPoint' and 'prevEndPoint' are positive.
          */
-        bool isOverflow(LineEnds markers, int index);
+        // bool isOverflow(LineEnds markers, int index);
         // void pageFormat(int maxLines, LineEnds markers, TextLayout& pageLayout, TextLayout& overflowLayout);
     }
     namespace TF = TextFormat;
@@ -168,8 +165,8 @@ namespace EasyCurses
 
         //Common math
         virtual int _maxLines(int padY=0) { return maxLines(winData->height, padY == 0 ? winData->paddingY : padY); }
-        // virtual int _maxChars(int padX=0) { return maxChars(winData->width, padX == 0 ? winData->paddingX : padX); }
-        virtual int _maxChars(int padX=0) { return maxChars(27, padX == 0 ? winData->paddingX : padX); }
+        virtual int _maxChars(int padX=0) { return maxChars(winData->width, padX == 0 ? winData->paddingX : padX); }
+        // virtual int _maxChars(int padX=0) { return maxChars(27, padX == 0 ? winData->paddingX : padX); }
 
         virtual void drawTitle();
         virtual void drawFrame();
@@ -202,6 +199,8 @@ namespace EasyCurses
         //Text formatting
         int page, numLines;
         std::string text;
+        TF::LineEnds pageLayout;
+        TF::OverFlow oFLayout;
 
             //Common math
         int pageTop()    { return page * _maxLines(); }
@@ -211,7 +210,7 @@ namespace EasyCurses
 
             //Text painting
         virtual void calculatePage(NavContent seek);
-        virtual void printStyle(int& x, int& y); //Only to be used by drawContent
+        virtual void printStyle(); //Only to be used by drawContent
         virtual void drawContent();
         virtual void drawPageNumber(); //Only to be used by update and drawFrame
 
@@ -221,10 +220,6 @@ namespace EasyCurses
         void setUpdate() { changed = true; }
         bool doUpdate();
         virtual void update();
-
-    private:
-        //Text formatting
-        TF::LineEnds lineFormat;
 
     public:
         BasicMenu(std::string text, WinData* windowsData, std::string title="Please chosen an option");
@@ -250,19 +245,15 @@ namespace EasyCurses
         //Text formatting
         std::string checkMark = "X";
         std::string blankMark = "O";
-        TF::TextLayout::iterator overflowLine;
-        //<page number, end of line in text string>
-        TF::TextLayout pageLayout;
-        //<line number, end of line in text string>
-        TF::TextLayout overflowLayout;
         int highlight;
+        TF::OverFlow::iterator oFLine;
 
             //Common math
         int currentLine() { return (highlight + winData->paddingY) - (_maxLines() * page); }
 
             //Text painting
         virtual void calculatePage(NavContent seek) override;
-        virtual void printStyle(int& x, int& y) override; //Only to be used by drawContent
+        virtual void printStyle() override; //Only to be used by drawContent
         virtual void drawFrame() override;
         void drawCheckMark(int index, int y);
         void drawAllCheckMarks();
@@ -270,7 +261,7 @@ namespace EasyCurses
 
         //Update
         virtual void update() override;
-        void updateLineTrackers(int n) { highlight = n; overflowLine = overflowLayout.find(highlight); }
+        void updateLineTrackers(int n) { highlight = n; oFLine = oFLayout.lower_bound(highlight); }
 
     public:
         SelectionMenu(std::string text, WinData* windowsData, std::string title="Please chosen an option");
