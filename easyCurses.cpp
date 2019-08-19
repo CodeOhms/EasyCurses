@@ -81,8 +81,8 @@ namespace EasyCurses
 
             LineEnds oFlow;
 
-            while(linePos != text.length())
-            {
+            while(linePos != text.length() && (linePos +1) != text.length())
+            { //2nd case is when last char is new line
                 {
                     size_t endPoint;
 
