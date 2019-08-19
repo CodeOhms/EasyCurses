@@ -164,7 +164,6 @@ namespace EasyCurses
         //Common math
         virtual int _maxLines(int padY=0) { return maxLines(winData->height, padY == 0 ? winData->paddingY : padY); }
         virtual int _maxChars(int padX=0) { return maxChars(winData->width, padX == 0 ? winData->paddingX : padX); }
-        // virtual int _maxChars(int padX=0) { return maxChars(27, padX == 0 ? winData->paddingX : padX); }
 
         virtual void drawTitle();
         virtual void drawFrame();
