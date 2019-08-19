@@ -370,8 +370,8 @@ namespace EasyCurses
         for(int l = pageTop(); l <= pageBottom() && l < numLines; ++l)
         {
             auto info        = pageLayout[l];
-            int numChars     = info.second; //-1 so zero-initialised
-            size_t lineStart = info.first - (info.second == _maxChars() +1? _maxChars() : info.second);
+            int numChars     = (info.second == _maxChars() +1? _maxChars() : info.second); //-1 so zero-initialised
+            size_t lineStart = info.first - numChars;
 
             wmove(winData->win, y, x);
             waddstr(winData->win, text.substr(lineStart, numChars).c_str());
@@ -444,6 +444,7 @@ namespace EasyCurses
         this->text = text;
 
         TF::overflow(text, _maxChars(), pageLayout, oFLayout);
+        oFLine  = 0;
         numLines = pageLayout.size();
 
         for(int i = 0; i < numLines; ++i)
@@ -465,6 +466,12 @@ namespace EasyCurses
             if(option.second == true)
                 chosen.push_back(option.first);
         }
+    }
+
+    void SelectionMenu::updateLineTrackers(int n)
+    {
+        highlight = n;
+        oFLine   = 0;
     }
 
     void SelectionMenu::drawCheckMark(int index, int y)
@@ -545,34 +552,60 @@ namespace EasyCurses
 
     void SelectionMenu::navTrunc(NavContent input)
     {
-        if(oFLine == oFLayout.end())
+        if(pageLayout[highlight].second != _maxChars() +1)
             return;
 
-        bool changed = false;
+        bool changed     = false;
+        int numChars     = 0;
+        size_t lineStart = 0;
 
-        TF::OverFlow::iterator first, last;
-        {
-            auto range = oFLayout.equal_range(highlight);
-            first      = range.first;
-            last       = range.second;
-            --last;
-        }
+        int first = 0;
+        int last  = oFLayout.count(highlight);
+
+        auto set = [&]() -> void {
+            auto temp = oFLayout.lower_bound(highlight);
+            for(int count = 1; count < oFLine; ++count)
+            {
+                ++temp;
+            }
+            numChars = (temp->second).second;
+            lineStart = ((temp->second).first) - numChars;
+        };
 
         switch(input)
         {
         case NavContent::left:
-            if(oFLine != first)
+            if((oFLine -1) > first)
             {
                 changed = true;
                 --oFLine;
+                set();
+            }
+            else if((oFLine -1) < first)
+                break;
+            else // == first
+            {
+                changed = true;
+                oFLine  = 0;
+
+                auto info = pageLayout[highlight];
+                numChars  = (info.second == _maxChars() +1? _maxChars() : info.second);
+                lineStart = info.first - numChars;
             }
             break;
 
         case NavContent::right:
-            if(oFLine != last)
+            if(oFLine == first)
+            {
+                changed = true;
+                set();
+                ++oFLine;
+            }
+            else if((oFLine +1) <= last)
             {
                 changed = true;
                 ++oFLine;
+                set();
             }
             break;
 
@@ -582,14 +615,10 @@ namespace EasyCurses
 
         if(changed)
         {
-            eraseChunk(winData->win, currentLine(), winData->paddingX, _maxChars());
+            eraseChunk(winData->win, yCoord(), winData->paddingX, _maxChars());
             wattron(winData->win, A_REVERSE);
-
-            int numChars     = (oFLine->second).second;
-            size_t lineStart = ((oFLine->second).first) - numChars;
-
-            wmove(winData->win, winData->paddingY, winData->paddingX);
             waddstr(winData->win, text.substr(lineStart, numChars).c_str());
+            wattroff(winData->win, A_REVERSE);
         }
 
         wrefresh(winData->win);
@@ -615,7 +644,7 @@ namespace EasyCurses
                     selected[highlight] = false;
                 else
                     selected[highlight] = true;
-                drawCheckMark(highlight, currentLine());
+                drawCheckMark(highlight, yCoord());
                 break;
 
             case NavContent::finish:
@@ -664,7 +693,7 @@ namespace EasyCurses
 
             wmove(winData->win, y, x);
             //Highlight the present choice
-            if(highlight == l + (_maxLines() * page))
+            if(highlight == l)
             {
                 wattron(winData->win, A_REVERSE);
                 waddstr(winData->win, text.substr(lineStart, numChars).c_str());

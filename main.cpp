@@ -126,7 +126,7 @@ int main()
         werase(demo);
         mvwprintw(demo, 0, 0, "Options chosen:\n");
         for(auto option : chosen)
-            wprintw(demo, "%i", option);
+            wprintw(demo, "%i\n", option);
         wrefresh(demo);
 
         freeze();

@@ -63,20 +63,18 @@ namespace EasyCurses
          *   2| w| o| r| k|  |  |  |  |  |  |   |  |  |  |  |  |  |  |  |  |  |  |  |  |
          *
          *
-         *   LineEnds pageLayout = { 2, 11, 4 };
+         *                         { [index] = (end point, # characters) };
+         *   LineEnds pageLayout = { [0] = (2, 2), [1] = (13, 11), [2] = (29, 4) };
          *     => If a line overflows, it has a special attribute.
-         *        Its end point = the screen width +1. Simply subtract -1 to
-         *        get the real end point. Each element is a count of how many
-         *        characters are included from a given line. Convert back
-         *        to the indexs of the string, then subtract the count
-         *        to get the start point of the line.
-         *   TextLayout oFLayout = { [1] = 10, [1] = 1 };
+         *        Its number of characters = the screen width +1. Simply subtract -1 to
+         *        get the real end point.
+         *
+         *                       { (line #, (end point, # characters)) }
+         *   OverFlow oFLayout = { [1] = (23, 10), [1] = (24, 1) };
          *     => 'oFLayout' contains the virtual end points in between,
          *        and the end point of the new line of the overflow.
          *
-         */
-
-        /*
+         *
          * Must be recalculated at every screen resize.
          */
 
@@ -239,17 +237,17 @@ namespace EasyCurses
     {
     private:
         //Input
-        std::map<int,bool> selected;
+        std::map<size_t, bool> selected;
         virtual void inputHandling(NavContent& input) override;
 
         //Text formatting
         std::string checkMark = "X";
         std::string blankMark = "O";
-        int highlight;
-        TF::OverFlow::iterator oFLine;
+        size_t highlight;
+        int oFLine;
 
             //Common math
-        int currentLine() { return (highlight + winData->paddingY) - (_maxLines() * page); }
+        int yCoord() { return (highlight + winData->paddingY) - (_maxLines() * page); }
 
             //Text painting
         virtual void calculatePage(NavContent seek) override;
@@ -261,7 +259,7 @@ namespace EasyCurses
 
         //Update
         virtual void update() override;
-        void updateLineTrackers(int n) { highlight = n; oFLine = oFLayout.lower_bound(highlight); }
+        void updateLineTrackers(int n);
 
     public:
         SelectionMenu(std::string text, WinData* windowsData, std::string title="Please chosen an option");
