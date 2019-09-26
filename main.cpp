@@ -35,7 +35,7 @@ bool help()
     hWinData->win = helpWin;
     std::string helpText = "This is how to use the program:\n"\
     "ESC to exit\nENTER to select\n";
-      for(int i = 0; i < hWinData->height *2; ++i)
+      for(unsigned i = 0; i < hWinData->height *2; ++i)
           helpText += "Blah blah blah\n";
     BasicMenu helpMenu(helpText, hWinData.get(), "BasicMenu demo");
     /*Stylise the menu borders*/
@@ -107,7 +107,11 @@ int main()
         wrefresh(stdscr);
 
         SelectionMenu sMenu(options, winData.get(), "SelectionMenu demo");
-        sMenu.keyBindings[104] = EasyCurses::NavContent::custom; //104 => 'h'
+        {
+            std::map<unsigned, NavContent>& kB = sMenu.getKeyBindings();
+            kB[104] = EasyCurses::NavContent::custom; //104 => 'h'
+            sMenu.setKeyBindings(kB);
+        }
         sMenu.setCustomAction(&help);
         /*Stylise the menu borders*/
         //				borders => (bool, we, ns)
@@ -119,7 +123,7 @@ int main()
 
         flushinp();
         sMenu.menuLoop();
-        std::vector<int> chosen;
+        std::vector<unsigned> chosen;
         sMenu.getResult(chosen);
 
         //do something with option numbers returned

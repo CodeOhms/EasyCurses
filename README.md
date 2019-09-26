@@ -1,15 +1,14 @@
-# EasyCurses
+#EasyCurses
 Simple ncurses widgets
 
 #Compile
 Linux
 
-g++ -c *.cpp
-g++ *.o -lncursesw -o CursesMenuTest
+`g++ -c -Wextra -Werror *.cpp`
+`g++ *.o -lncursesw -o CursesMenuTest`
 
 
 Windows
 
-g++ -c *.cpp
-g++ *.o -lpdcursesw -o CursesMenuTest
-
+`g++ -c -Wextra -Werror *.cpp`
+`g++ *.o -lpdcursesw -o CursesMenuTest`
