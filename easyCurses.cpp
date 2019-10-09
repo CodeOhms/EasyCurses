@@ -277,7 +277,7 @@ namespace EasyCurses
         TF::overflow(lines, _maxChars(), pageLayout);
         numLines = pageLayout.size();
 
-        bool changed = false;
+        changed = false;
 
         keypad(winData->win, true);
         keyBindings = {
